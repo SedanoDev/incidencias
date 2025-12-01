@@ -1,13 +1,7 @@
--- =============================================
--- BASE DE DATOS TICKETING ITIL MULTI-TENANT
--- =============================================
+DROP DATABASE IF EXISTS itil_ticketing_saas;
 
-CREATE DATABASE IF NOT EXISTS itil_ticketing_saas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE itil_ticketing_saas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE itil_ticketing_saas;
-
--- =============================================
--- TABLA DE TENANTS (ORGANIZACIONES/EMPRESAS)
--- =============================================
 
 CREATE TABLE tenants (
     tenant_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -24,7 +18,7 @@ CREATE TABLE tenants (
     max_users INT DEFAULT 10,
     max_tickets_per_month INT DEFAULT 1000,
     max_storage_gb INT DEFAULT 10,
-    features JSON, -- Características habilitadas por plan
+    features JSON,
     billing_email VARCHAR(100),
     contact_name VARCHAR(100),
     contact_email VARCHAR(100),
@@ -35,7 +29,7 @@ CREATE TABLE tenants (
     language VARCHAR(10) DEFAULT 'es',
     currency VARCHAR(3) DEFAULT 'EUR',
     logo_url VARCHAR(500),
-    custom_branding JSON, -- Colores, logos personalizados
+    custom_branding JSON,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -45,7 +39,6 @@ CREATE TABLE tenants (
     INDEX idx_active (is_active)
 );
 
--- Configuraciones personalizadas por tenant
 CREATE TABLE tenant_settings (
     setting_id INT PRIMARY KEY AUTO_INCREMENT,
     tenant_id INT NOT NULL,
@@ -60,7 +53,6 @@ CREATE TABLE tenant_settings (
     INDEX idx_tenant (tenant_id)
 );
 
--- Límites de uso por tenant
 CREATE TABLE tenant_usage (
     usage_id INT PRIMARY KEY AUTO_INCREMENT,
     tenant_id INT NOT NULL,
@@ -76,10 +68,6 @@ CREATE TABLE tenant_usage (
     INDEX idx_tenant (tenant_id)
 );
 
--- =============================================
--- TABLAS DE USUARIOS Y ORGANIZACION (CON TENANT_ID)
--- =============================================
-
 CREATE TABLE users (
     user_id INT PRIMARY KEY AUTO_INCREMENT,
     tenant_id INT NOT NULL,
@@ -92,8 +80,8 @@ CREATE TABLE users (
     department_id INT,
     role ENUM('end_user', 'technician', 'manager', 'admin', 'tenant_admin') DEFAULT 'end_user',
     is_active BOOLEAN DEFAULT TRUE,
-    last_login_at TIMESTAMP,
-    password_changed_at TIMESTAMP,
+    last_login_at TIMESTAMP NULL,
+    password_changed_at TIMESTAMP NULL,
     failed_login_attempts INT DEFAULT 0,
     locked_until TIMESTAMP NULL,
     must_change_password BOOLEAN DEFAULT FALSE,
@@ -154,13 +142,9 @@ CREATE TABLE team_members (
     INDEX idx_tenant (tenant_id)
 );
 
--- =============================================
--- GESTION DE CONFIGURACION CMDB (CON TENANT_ID)
--- =============================================
-
 CREATE TABLE ci_types (
     ci_type_id INT PRIMARY KEY AUTO_INCREMENT,
-    tenant_id INT NULL, -- NULL para tipos globales del sistema
+    tenant_id INT NULL,
     type_name VARCHAR(50) NOT NULL,
     type_category ENUM('hardware', 'software', 'network', 'database', 'service', 'documentation') NOT NULL,
     description TEXT,
@@ -222,13 +206,9 @@ CREATE TABLE ci_relationships (
     INDEX idx_child (child_ci_id)
 );
 
--- =============================================
--- CATEGORIAS Y PRIORIDADES (CON TENANT_ID)
--- =============================================
-
 CREATE TABLE categories (
     category_id INT PRIMARY KEY AUTO_INCREMENT,
-    tenant_id INT NULL, -- NULL para categorías globales del sistema
+    tenant_id INT NULL,
     category_name VARCHAR(100) NOT NULL,
     parent_category_id INT,
     category_type ENUM('incident', 'problem', 'change', 'service_request') NOT NULL,
@@ -244,7 +224,7 @@ CREATE TABLE categories (
 
 CREATE TABLE priority_matrix (
     priority_id INT PRIMARY KEY AUTO_INCREMENT,
-    tenant_id INT NULL, -- NULL para prioridades globales del sistema
+    tenant_id INT NULL,
     priority_name VARCHAR(20) NOT NULL,
     priority_level INT NOT NULL,
     impact ENUM('low', 'medium', 'high', 'critical') NOT NULL,
@@ -256,10 +236,6 @@ CREATE TABLE priority_matrix (
     INDEX idx_tenant (tenant_id),
     UNIQUE KEY unique_impact_urgency (tenant_id, impact, urgency)
 );
-
--- =============================================
--- INCIDENTES (CON TENANT_ID)
--- =============================================
 
 CREATE TABLE incidents (
     incident_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -286,9 +262,9 @@ CREATE TABLE incidents (
     escalation_level INT DEFAULT 0,
     reopened_count INT DEFAULT 0,
     sla_breach BOOLEAN DEFAULT FALSE,
-    target_resolution_date TIMESTAMP,
-    resolved_date TIMESTAMP,
-    closed_date TIMESTAMP,
+    target_resolution_date TIMESTAMP NULL,
+    resolved_date TIMESTAMP NULL,
+    closed_date TIMESTAMP NULL,
     closed_by INT,
     closure_category VARCHAR(100),
     customer_satisfaction_rating INT CHECK (customer_satisfaction_rating BETWEEN 1 AND 5),
@@ -311,10 +287,6 @@ CREATE TABLE incidents (
     INDEX idx_sla_breach (tenant_id, sla_breach)
 );
 
--- =============================================
--- PROBLEMAS (CON TENANT_ID)
--- =============================================
-
 CREATE TABLE problems (
     problem_id INT PRIMARY KEY AUTO_INCREMENT,
     tenant_id INT NOT NULL,
@@ -336,11 +308,11 @@ CREATE TABLE problems (
     root_cause_category VARCHAR(100),
     workaround TEXT,
     permanent_solution TEXT,
-    resolution_date TIMESTAMP,
-    closed_date TIMESTAMP,
+    resolution_date TIMESTAMP NULL,
+    closed_date TIMESTAMP NULL,
     closed_by INT,
     related_change_id INT,
-    known_error_date TIMESTAMP,
+    known_error_date TIMESTAMP NULL,
     kedb_entry_id INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -377,7 +349,7 @@ CREATE TABLE known_errors (
     created_by INT NOT NULL,
     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    resolution_date TIMESTAMP,
+    resolution_date TIMESTAMP NULL,
     times_referenced INT DEFAULT 0,
     FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
     FOREIGN KEY (problem_id) REFERENCES problems(problem_id),
@@ -405,13 +377,9 @@ CREATE TABLE incident_problem_relations (
     INDEX idx_tenant (tenant_id)
 );
 
--- =============================================
--- CAMBIOS (CON TENANT_ID)
--- =============================================
-
 CREATE TABLE change_types (
     change_type_id INT PRIMARY KEY AUTO_INCREMENT,
-    tenant_id INT NULL, -- NULL para tipos globales
+    tenant_id INT NULL,
     type_name VARCHAR(50) NOT NULL,
     description TEXT,
     requires_cab_approval BOOLEAN DEFAULT TRUE,
@@ -447,21 +415,21 @@ CREATE TABLE changes (
     business_justification TEXT,
     related_problem_id INT,
     related_incident_id INT,
-    scheduled_start_date TIMESTAMP,
-    scheduled_end_date TIMESTAMP,
-    actual_start_date TIMESTAMP,
-    actual_end_date TIMESTAMP,
+    scheduled_start_date TIMESTAMP NULL,
+    scheduled_end_date TIMESTAMP NULL,
+    actual_start_date TIMESTAMP NULL,
+    actual_end_date TIMESTAMP NULL,
     requires_downtime BOOLEAN DEFAULT FALSE,
     downtime_duration_minutes INT,
     cab_approval_required BOOLEAN DEFAULT TRUE,
-    cab_review_date TIMESTAMP,
+    cab_review_date TIMESTAMP NULL,
     approved_by INT,
-    approval_date TIMESTAMP,
+    approval_date TIMESTAMP NULL,
     rejection_reason TEXT,
     implementation_notes TEXT,
     post_implementation_review TEXT,
     success BOOLEAN,
-    closed_date TIMESTAMP,
+    closed_date TIMESTAMP NULL,
     closed_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -503,7 +471,7 @@ CREATE TABLE change_approvals (
     approver_id INT NOT NULL,
     approval_status ENUM('pending', 'approved', 'rejected', 'abstained') DEFAULT 'pending',
     comments TEXT,
-    approval_date TIMESTAMP,
+    approval_date TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
     FOREIGN KEY (change_id) REFERENCES changes(change_id) ON DELETE CASCADE,
@@ -524,10 +492,6 @@ CREATE TABLE change_affected_cis (
     UNIQUE KEY unique_change_ci (tenant_id, change_id, ci_id),
     INDEX idx_tenant (tenant_id)
 );
-
--- =============================================
--- SOLICITUDES DE SERVICIO (CON TENANT_ID)
--- =============================================
 
 CREATE TABLE service_catalog (
     service_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -572,14 +536,14 @@ CREATE TABLE service_requests (
     assigned_team_id INT,
     approval_required BOOLEAN DEFAULT FALSE,
     approved_by INT,
-    approval_date TIMESTAMP,
+    approval_date TIMESTAMP NULL,
     rejection_reason TEXT,
     justification TEXT,
     estimated_cost DECIMAL(10,2),
     actual_cost DECIMAL(10,2),
-    target_completion_date TIMESTAMP,
-    completed_date TIMESTAMP,
-    closed_date TIMESTAMP,
+    target_completion_date TIMESTAMP NULL,
+    completed_date TIMESTAMP NULL,
+    closed_date TIMESTAMP NULL,
     closed_by INT,
     customer_satisfaction_rating INT CHECK (customer_satisfaction_rating BETWEEN 1 AND 5),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -599,11 +563,6 @@ CREATE TABLE service_requests (
     INDEX idx_service (service_id),
     INDEX idx_requested_date (tenant_id, requested_date)
 );
-
--- =============================================
--- RESTO DE TABLAS (COMENTARIOS, ATTACHMENTS, ETC)
--- Todas con tenant_id añadido siguiendo el mismo patrón
--- =============================================
 
 CREATE TABLE comments (
     comment_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -678,10 +637,10 @@ CREATE TABLE sla_tracking (
     ticket_id INT NOT NULL,
     sla_id INT NOT NULL,
     start_time TIMESTAMP NOT NULL,
-    response_due_time TIMESTAMP NOT NULL,
-    resolution_due_time TIMESTAMP NOT NULL,
-    response_time TIMESTAMP,
-    resolution_time TIMESTAMP,
+    response_due_time TIMESTAMP NULL,
+    resolution_due_time TIMESTAMP NULL,
+    response_time TIMESTAMP NULL,
+    resolution_time TIMESTAMP NULL,
     response_breached BOOLEAN DEFAULT FALSE,
     resolution_breached BOOLEAN DEFAULT FALSE,
     paused_duration_minutes INT DEFAULT 0,
@@ -747,7 +706,7 @@ CREATE TABLE notifications (
     message TEXT NOT NULL,
     is_read BOOLEAN DEFAULT FALSE,
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    read_at TIMESTAMP,
+    read_at TIMESTAMP NULL,
     FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     INDEX idx_tenant (tenant_id),
@@ -775,62 +734,8 @@ CREATE TABLE audit_log (
     INDEX idx_changed_at (changed_at)
 );
 
--- =============================================
--- DATOS INICIALES GLOBALES
--- =============================================
-
--- Tipos de CI globales (tenant_id NULL)
-INSERT INTO ci_types (tenant_id, type_name, type_category, description, is_custom) VALUES
-(NULL, 'Server', 'hardware', 'Physical or virtual server', FALSE),
-(NULL, 'Workstation', 'hardware', 'Desktop or laptop computer', FALSE),
-(NULL, 'Network Device', 'hardware', 'Router, switch, firewall', FALSE),
-(NULL, 'Database', 'database', 'Database system', FALSE),
-(NULL, 'Application', 'software', 'Business application', FALSE),
-(NULL, 'Operating System', 'software', 'OS installation', FALSE),
-(NULL, 'Service', 'service', 'IT service', FALSE),
-(NULL, 'Documentation', 'documentation', 'Technical documentation', FALSE);
-
--- Tipos de Cambio globales
-INSERT INTO change_types (tenant_id, type_name, description, requires_cab_approval, standard_change, is_custom) VALUES
-(NULL, 'Emergency', 'Cambio de emergencia para resolver un incidente crítico', TRUE, FALSE, FALSE),
-(NULL, 'Standard', 'Cambio pre-aprobado de bajo riesgo', FALSE, TRUE, FALSE),
-(NULL, 'Normal', 'Cambio regular que requiere aprobación', TRUE, FALSE, FALSE),
-(NULL, 'Major', 'Cambio importante que afecta servicios críticos', TRUE, FALSE, FALSE);
-
--- Categorías globales
-INSERT INTO categories (tenant_id, category_name, category_type, description, is_custom) VALUES
-(NULL, 'Hardware', 'incident', 'Problemas relacionados con hardware', FALSE),
-(NULL, 'Software', 'incident', 'Problemas relacionados con software', FALSE),
-(NULL, 'Network', 'incident', 'Problemas de red y conectividad', FALSE),
-(NULL, 'Access', 'service_request', 'Solicitudes de acceso y permisos', FALSE),
-(NULL, 'Equipment', 'service_request', 'Solicitudes de equipamiento', FALSE),
-(NULL, 'Infrastructure', 'change', 'Cambios en infraestructura', FALSE),
-(NULL, 'Application', 'change', 'Cambios en aplicaciones', FALSE),
-(NULL, 'Hardware Failure', 'problem', 'Fallos recurrentes de hardware', FALSE),
-(NULL, 'Software Bug', 'problem', 'Errores de software recurrentes', FALSE);
-
--- Matriz de Prioridades global
-INSERT INTO priority_matrix (tenant_id, priority_name, priority_level, impact, urgency, response_time_hours, resolution_time_hours, description, is_custom) VALUES
-(NULL, 'Critical', 1, 'critical', 'critical', 1, 4, 'Servicio crítico caído afectando a toda la organización', FALSE),
-(NULL, 'High', 2, 'high', 'critical', 2, 8, 'Servicio importante afectado con urgencia crítica', FALSE),
-(NULL, 'High', 2, 'critical', 'high', 2, 8, 'Servicio crítico con urgencia alta', FALSE),
-(NULL, 'Medium-High', 3, 'medium', 'critical', 4, 16, 'Impacto medio con urgencia crítica', FALSE),
-(NULL, 'Medium-High', 3, 'high', 'high', 4, 16, 'Alto impacto y alta urgencia', FALSE),
-(NULL, 'Medium', 4, 'medium', 'high', 8, 24, 'Impacto medio y urgencia alta', FALSE),
-(NULL, 'Medium', 4, 'high', 'medium', 8, 24, 'Alto impacto y urgencia media', FALSE),
-(NULL, 'Low-Medium', 5, 'low', 'critical', 12, 48, 'Bajo impacto pero urgencia crítica', FALSE),
-(NULL, 'Low-Medium', 5, 'medium', 'medium', 12, 48, 'Impacto y urgencia medios', FALSE),
-(NULL, 'Low', 6, 'low', 'high', 24, 72, 'Bajo impacto y alta urgencia', FALSE),
-(NULL, 'Low', 6, 'low', 'medium', 24, 72, 'Bajo impacto y urgencia media', FALSE),
-(NULL, 'Very Low', 7, 'low', 'low', 48, 120, 'Bajo impacto y baja urgencia', FALSE);
-
--- =============================================
--- VISTAS ÚTILES PARA CONSULTAS MULTI-TENANT
--- =============================================
-
--- Vista de tickets activos por tenant
 CREATE VIEW v_active_tickets_summary AS
-SELECT
+SELECT 
     t.tenant_id,
     t.company_name,
     COUNT(DISTINCT i.incident_id) as active_incidents,
